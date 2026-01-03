@@ -70,9 +70,6 @@ func (article ArticleModel) favoritesCount() uint {
 	db.Model(&FavoriteModel{}).Where(FavoriteModel{
 		FavoriteID: article.ID,
 	}).Count(&count)
-	if count < 0 {
-		return 0
-	}
 	return uint(count)
 }
 
@@ -154,6 +151,13 @@ func FindOneArticle(condition interface{}) (ArticleModel, error) {
 	db := common.GetDB()
 	var model ArticleModel
 	err := db.Preload("Author.UserModel").Preload("Tags").Where(condition).First(&model).Error
+	return model, err
+}
+
+func FindOneComment(condition interface{}) (CommentModel, error) {
+	db := common.GetDB()
+	var model CommentModel
+	err := db.Preload("Author.UserModel").Preload("Article").Where(condition).First(&model).Error
 	return model, err
 }
 

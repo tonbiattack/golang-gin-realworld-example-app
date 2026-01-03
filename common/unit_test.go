@@ -3,6 +3,7 @@ package common
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -19,19 +20,22 @@ func TestConnectingDatabase(t *testing.T) {
 	// Test create & close DB
 	_, err := os.Stat(dbPath)
 	asserts.NoError(err, "Db should exist")
-	sqlDB, _ := db.DB()
+	sqlDB, err := db.DB()
+	asserts.NoError(err, "Should get sql.DB")
 	asserts.NoError(sqlDB.Ping(), "Db should be able to ping")
 
 	// Test get a connecting from connection pools
 	connection := GetDB()
-	sqlDB, _ = connection.DB()
+	sqlDB, err = connection.DB()
+	asserts.NoError(err, "Should get sql.DB")
 	asserts.NoError(sqlDB.Ping(), "Db should be able to ping")
 	sqlDB.Close()
 
 	// Test DB exceptions
 	os.Chmod(dbPath, 0000)
 	db = Init()
-	sqlDB, _ = db.DB()
+	sqlDB, err = db.DB()
+	asserts.NoError(err, "Should get sql.DB")
 	asserts.Error(sqlDB.Ping(), "Db should not be able to ping")
 	sqlDB.Close()
 	os.Chmod(dbPath, 0644)
@@ -44,7 +48,8 @@ func TestConnectingTestDatabase(t *testing.T) {
 	testDBPath := GetTestDBPath()
 	_, err := os.Stat(testDBPath)
 	asserts.NoError(err, "Db should exist")
-	sqlDB, _ := db.DB()
+	sqlDB, err := db.DB()
+	asserts.NoError(err, "Should get sql.DB")
 	asserts.NoError(sqlDB.Ping(), "Db should be able to ping")
 	TestDBFree(db)
 
@@ -54,6 +59,31 @@ func TestConnectingTestDatabase(t *testing.T) {
 	_, err = os.Stat(testDBPath)
 
 	asserts.Error(err, "Db should not exist")
+}
+
+func TestDBDirCreation(t *testing.T) {
+	asserts := assert.New(t)
+	// Set a nested path
+	os.Setenv("TEST_DB_PATH", "tmp/nested/test.db")
+	defer os.Unsetenv("TEST_DB_PATH")
+
+	db := TestDBInit()
+	testDBPath := GetTestDBPath()
+	_, err := os.Stat(testDBPath)
+	asserts.NoError(err, "Db should exist in nested directory")
+	TestDBFree(db)
+
+	// Cleanup directory
+	os.RemoveAll("tmp/nested")
+}
+
+func TestDBPathOverride(t *testing.T) {
+	asserts := assert.New(t)
+	customPath := "./custom_test.db"
+	os.Setenv("TEST_DB_PATH", customPath)
+	defer os.Unsetenv("TEST_DB_PATH")
+
+	asserts.Equal(customPath, GetTestDBPath(), "Should use env var")
 }
 
 func TestRandString(t *testing.T) {
@@ -109,6 +139,35 @@ func TestGenTokenMultipleUsers(t *testing.T) {
 	asserts.LessOrEqual(len(token1), 120, "JWT's length should be <= 120 for user 1")
 	asserts.GreaterOrEqual(len(token100), 114, "JWT's length should be >= 114 for user 100")
 	asserts.LessOrEqual(len(token100), 120, "JWT's length should be <= 120 for user 100")
+}
+
+func TestHeaderTokenMock(t *testing.T) {
+	asserts := assert.New(t)
+
+	req, _ := http.NewRequest("GET", "/test", nil)
+	token := GenToken(5)
+	HeaderTokenMock(req, 5)
+
+	authHeader := req.Header.Get("Authorization")
+	asserts.Equal(fmt.Sprintf("Token %s", token), authHeader, "Authorization header should be set correctly")
+}
+
+func TestExtractTokenFromHeader(t *testing.T) {
+	asserts := assert.New(t)
+
+	token := "valid.jwt.token"
+	header := fmt.Sprintf("Token %s", token)
+
+	extracted := ExtractTokenFromHeader(header)
+	asserts.Equal(token, extracted, "Should extract token from header")
+
+	invalidHeader := "Bearer " + token
+	extracted = ExtractTokenFromHeader(invalidHeader)
+	asserts.Empty(extracted, "Should return empty for non-Token header")
+
+	shortHeader := "Token"
+	extracted = ExtractTokenFromHeader(shortHeader)
+	asserts.Empty(extracted, "Should return empty for short header")
 }
 
 func TestNewValidatorError(t *testing.T) {
