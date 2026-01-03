@@ -8,7 +8,7 @@ import (
 	"github.com/gothinkster/golang-gin-realworld-example-app/articles"
 	"github.com/gothinkster/golang-gin-realworld-example-app/common"
 	"github.com/gothinkster/golang-gin-realworld-example-app/users"
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 )
 
 func Migrate(db *gorm.DB) {
@@ -24,7 +24,12 @@ func main() {
 
 	db := common.Init()
 	Migrate(db)
-	defer db.Close()
+	sqlDB, err := db.DB()
+	if err != nil {
+		fmt.Println("failed to get sql.DB:", err)
+	} else {
+		defer sqlDB.Close()
+	}
 
 	r := gin.Default()
 
