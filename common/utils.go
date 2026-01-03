@@ -38,8 +38,8 @@ func RandInt() int {
 }
 
 // Keep this two config private, it should not expose to open source
-const JWTSecret = "A String Very Very Very Strong!!@##$!@#$"
-const RandomPassword = "A String Very Very Very Random!!@##$!@#4"
+const JWTSecret = "A String Very Very Very Strong!!@##$!@#$"      // #nosec G101
+const RandomPassword = "A String Very Very Very Random!!@##$!@#4" // #nosec G101
 
 // A Util function to generate jwt_token which can be used in the request header
 func GenToken(id uint) string {
