@@ -24,17 +24,12 @@ func ExtractTokenFromHeader(authHeader string) string {
 // VerifyTokenClaims verifies a JWT token and returns claims for testing
 func VerifyTokenClaims(tokenString string) (jwt.MapClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(NBSecretPassword), nil
+		return []byte(JWTSecret), nil
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return nil, fmt.Errorf("unexpected claims type: %T", token.Claims)
-	}
-
-	return claims, nil
+	return token.Claims.(jwt.MapClaims), nil
 }
