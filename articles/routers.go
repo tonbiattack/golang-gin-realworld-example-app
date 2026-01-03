@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gothinkster/golang-gin-realworld-example-app/common"
 	"github.com/gothinkster/golang-gin-realworld-example-app/users"
+	"gorm.io/gorm"
 	"net/http"
 	"strconv"
 )
@@ -102,11 +103,14 @@ func ArticleUpdate(c *gin.Context) {
 		c.JSON(http.StatusNotFound, common.NewError("articles", errors.New("Invalid slug")))
 		return
 	}
+	// Check if current user is the author
 	myUserModel := c.MustGet("my_user_model").(users.UserModel)
-	if articleModel.Author.UserModelID != myUserModel.ID {
-		c.JSON(http.StatusForbidden, common.NewError("articles", errors.New("You are not the author of this article")))
+	articleUserModel := GetArticleUserModel(myUserModel)
+	if articleModel.AuthorID != articleUserModel.ID {
+		c.JSON(http.StatusForbidden, common.NewError("article", errors.New("you are not the author")))
 		return
 	}
+
 	articleModelValidator := NewArticleModelValidatorFillWith(articleModel)
 	if err := articleModelValidator.Bind(c); err != nil {
 		c.JSON(http.StatusUnprocessableEntity, common.NewValidatorError(err))
@@ -125,21 +129,21 @@ func ArticleUpdate(c *gin.Context) {
 func ArticleDelete(c *gin.Context) {
 	slug := c.Param("slug")
 	articleModel, err := FindOneArticle(&ArticleModel{Slug: slug})
-	if err != nil {
-		c.Status(http.StatusOK)
+	if err == nil {
+		// Article exists, check authorization
+		myUserModel := c.MustGet("my_user_model").(users.UserModel)
+		articleUserModel := GetArticleUserModel(myUserModel)
+		if articleModel.AuthorID != articleUserModel.ID {
+			c.JSON(http.StatusForbidden, common.NewError("article", errors.New("you are not the author")))
+			return
+		}
+	}
+	// Delete regardless of existence (idempotent)
+	if err := DeleteArticleModel(&ArticleModel{Slug: slug}); err != nil {
+		c.JSON(http.StatusUnprocessableEntity, common.NewError("database", err))
 		return
 	}
-	myUserModel := c.MustGet("my_user_model").(users.UserModel)
-	if articleModel.Author.UserModelID != myUserModel.ID {
-		c.JSON(http.StatusForbidden, common.NewError("articles", errors.New("You are not the author of this article")))
-		return
-	}
-	err = DeleteArticleModel(&ArticleModel{Slug: slug})
-	if err != nil {
-		c.JSON(http.StatusNotFound, common.NewError("articles", errors.New("Invalid slug")))
-		return
-	}
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, gin.H{"article": "delete success"})
 }
 
 func ArticleFavorite(c *gin.Context) {
@@ -198,29 +202,27 @@ func ArticleCommentCreate(c *gin.Context) {
 
 func ArticleCommentDelete(c *gin.Context) {
 	id64, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusNotFound, common.NewError("comment", errors.New("Invalid id")))
+		return
+	}
 	id := uint(id64)
-	if err != nil {
-		c.JSON(http.StatusNotFound, common.NewError("comment", errors.New("Invalid id")))
+	commentModel, err := FindOneComment(&CommentModel{Model: gorm.Model{ID: id}})
+	if err == nil {
+		// Comment exists, check authorization
+		myUserModel := c.MustGet("my_user_model").(users.UserModel)
+		articleUserModel := GetArticleUserModel(myUserModel)
+		if commentModel.AuthorID != articleUserModel.ID {
+			c.JSON(http.StatusForbidden, common.NewError("comment", errors.New("you are not the author")))
+			return
+		}
+	}
+	// Delete regardless of existence (idempotent)
+	if err := DeleteCommentModel([]uint{id}); err != nil {
+		c.JSON(http.StatusUnprocessableEntity, common.NewError("database", err))
 		return
 	}
-	condition := CommentModel{}
-	condition.ID = id
-	commentModel, err := FindOneComment(&condition)
-	if err != nil {
-		c.JSON(http.StatusNotFound, common.NewError("comment", errors.New("Invalid id")))
-		return
-	}
-	myUserModel := c.MustGet("my_user_model").(users.UserModel)
-	if commentModel.Author.UserModelID != myUserModel.ID {
-		c.JSON(http.StatusForbidden, common.NewError("comment", errors.New("You are not the author of this comment")))
-		return
-	}
-	err = DeleteCommentModel([]uint{id})
-	if err != nil {
-		c.JSON(http.StatusNotFound, common.NewError("comment", errors.New("Invalid id")))
-		return
-	}
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, gin.H{"comment": "delete success"})
 }
 
 func ArticleCommentList(c *gin.Context) {
