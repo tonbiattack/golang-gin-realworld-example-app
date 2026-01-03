@@ -1,7 +1,6 @@
 package articles
 
 import (
-	_ "fmt"
 	"github.com/gothinkster/golang-gin-realworld-example-app/common"
 	"github.com/gothinkster/golang-gin-realworld-example-app/users"
 	"github.com/jinzhu/gorm"
@@ -124,7 +123,7 @@ func (self *ArticleModel) getComments() error {
 	db := common.GetDB()
 	tx := db.Begin()
 	tx.Model(self).Related(&self.Comments, "Comments")
-	for i, _ := range self.Comments {
+	for i := range self.Comments {
 		tx.Model(&self.Comments[i]).Related(&self.Comments[i].Author, "Author")
 		tx.Model(&self.Comments[i].Author).Related(&self.Comments[i].Author.UserModel)
 	}
@@ -144,13 +143,13 @@ func FindManyArticle(tag, author, limit, offset, favorited string) ([]ArticleMod
 	var models []ArticleModel
 	var count int
 
-	offset_int, err := strconv.Atoi(offset)
-	if err != nil {
+	offset_int, errOffset := strconv.Atoi(offset)
+	if errOffset != nil {
 		offset_int = 0
 	}
 
-	limit_int, err := strconv.Atoi(limit)
-	if err != nil {
+	limit_int, errLimit := strconv.Atoi(limit)
+	if errLimit != nil {
 		limit_int = 20
 	}
 
@@ -193,12 +192,12 @@ func FindManyArticle(tag, author, limit, offset, favorited string) ([]ArticleMod
 		db.Offset(offset_int).Limit(limit_int).Find(&models)
 	}
 
-	for i, _ := range models {
+	for i := range models {
 		tx.Model(&models[i]).Related(&models[i].Author, "Author")
 		tx.Model(&models[i].Author).Related(&models[i].Author.UserModel)
 		tx.Model(&models[i]).Related(&models[i].Tags, "Tags")
 	}
-	err = tx.Commit().Error
+	err := tx.Commit().Error
 	return models, count, err
 }
 
@@ -207,12 +206,12 @@ func (self *ArticleUserModel) GetArticleFeed(limit, offset string) ([]ArticleMod
 	var models []ArticleModel
 	var count int
 
-	offset_int, err := strconv.Atoi(offset)
-	if err != nil {
+	offset_int, errOffset := strconv.Atoi(offset)
+	if errOffset != nil {
 		offset_int = 0
 	}
-	limit_int, err := strconv.Atoi(limit)
-	if err != nil {
+	limit_int, errLimit := strconv.Atoi(limit)
+	if errLimit != nil {
 		limit_int = 20
 	}
 
@@ -226,12 +225,12 @@ func (self *ArticleUserModel) GetArticleFeed(limit, offset string) ([]ArticleMod
 
 	tx.Where("author_id in (?)", articleUserModels).Order("updated_at desc").Offset(offset_int).Limit(limit_int).Find(&models)
 
-	for i, _ := range models {
+	for i := range models {
 		tx.Model(&models[i]).Related(&models[i].Author, "Author")
 		tx.Model(&models[i].Author).Related(&models[i].Author.UserModel)
 		tx.Model(&models[i]).Related(&models[i].Tags, "Tags")
 	}
-	err = tx.Commit().Error
+	err := tx.Commit().Error
 	return models, count, err
 }
 
