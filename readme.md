@@ -140,6 +140,25 @@ go test -v ./... -cover
 ```
 depending on whether you want to see test coverage and how verbose the output you want.
 
+## テストの実行方法（日本語）
+プロジェクトのルートディレクトリで以下を実行してください。
+```
+go test ./...
+```
+カバレッジを確認したい場合:
+```
+go test ./... -cover
+```
+詳細な出力とカバレッジを同時に見たい場合:
+```
+go test -v ./... -cover
+```
+カバレッジの内訳をファイルとして確認したい場合:
+```
+go test -coverprofile=coverage.out ./...
+go tool cover -func=coverage.out
+```
+
 ## Todo
 - More elegance config
 - ProtoBuf support
