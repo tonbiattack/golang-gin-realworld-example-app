@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -14,6 +16,7 @@ import (
 )
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+var sqliteErrSuffixRe = regexp.MustCompile(`\s\(\d+\)$`)
 
 // A helper function to generate random string
 func RandString(n int) string {
@@ -86,8 +89,19 @@ func NewValidatorError(err error) CommonError {
 func NewError(key string, err error) CommonError {
 	res := CommonError{}
 	res.Errors = make(map[string]interface{})
-	res.Errors[key] = err.Error()
+	if key == "database" {
+		res.Errors[key] = normalizeSQLiteError(err.Error())
+	} else {
+		res.Errors[key] = err.Error()
+	}
 	return res
+}
+
+func normalizeSQLiteError(msg string) string {
+	normalized := strings.TrimPrefix(msg, "constraint failed: ")
+	normalized = strings.TrimPrefix(normalized, "SQL logic error: ")
+	normalized = sqliteErrSuffixRe.ReplaceAllString(normalized, "")
+	return normalized
 }
 
 // Changed the c.MustBindWith() ->  c.ShouldBindWith().
